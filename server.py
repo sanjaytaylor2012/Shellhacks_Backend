@@ -51,9 +51,7 @@ def upload_video():
     with open(filepath, 'wb') as f:
         f.write(video_bytes)
 
-
     scores = shellhacks_algorithm.process_files(choice_to_video[sport], filepath)
-
 
     return jsonify({"acknowledged": "true"}), 200
 
