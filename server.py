@@ -15,6 +15,9 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
 @app.route('/upload', methods=['POST'])
 def upload_video():
+    req = request.get_json()
+    print(req)
+
     if 'file' not in request.files:
         flash('No file part')
         print("No file part")
@@ -36,7 +39,7 @@ def upload_video():
 def display_video(filename):
     #print('display_video filename: ' + filename)
     return redirect(url_for('static', filename='uploads/' + filename), code=301)
-
+ihu
 
 if __name__ == "__main__":
     app.run()
