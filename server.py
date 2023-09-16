@@ -5,8 +5,6 @@ import sys
 from flask import Flask, flash, request, redirect, url_for, render_template, jsonify
 from flask_cors import CORS
 
-sys.path.append('../')
-
 import shellhacks_algorithm
 
 
@@ -33,6 +31,17 @@ choice_to_video = {
 }
 
 
+graph_file_names = [
+    "Left arm angle.png",
+    "Left arm bend angle.png",
+    "Left leg bend angle.png",
+    "Left waist bend angle.png",
+    "Right arm angle.png",
+    "Right arm bend angle.png",
+    "Right leg bend angle.png",
+    "Right waist bend angle.png"
+]
+
 
 @app.route('/upload', methods=['POST'])
 def upload_video():
@@ -53,7 +62,15 @@ def upload_video():
 
     scores = shellhacks_algorithm.process_files(choice_to_video[sport], filepath)
 
-    return jsonify({"acknowledged": "true"}), 200
+    response = {}
+
+    for graph in graph_file_names:
+        with open(graph, "rb") as f:
+            cur_graph_bytes = f.read()
+            base_64_encoded_image = f'data:image/png;base64,{base64.b64encode(cur_graph_bytes)}'
+            response[graph.split('.')[0]] = base_64_encoded_image
+
+    return jsonify(response), 200
 
 
 if __name__ == "__main__":
