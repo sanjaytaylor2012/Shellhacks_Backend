@@ -25,4 +25,5 @@ def draw_landmarks_on_image(rgb_image, detection_result):
         pose_landmarks_proto,
         solutions.pose.POSE_CONNECTIONS,
         solutions.drawing_styles.get_default_pose_landmarks_style())
+
     return annotated_image

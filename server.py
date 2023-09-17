@@ -1,9 +1,12 @@
 import base64
 import datetime
-import sys
+import os
+import cv2
 
 from flask import Flask, flash, request, redirect, url_for, render_template, jsonify
 from flask_cors import CORS
+
+import ffmpeg
 
 import shellhacks_algorithm
 
@@ -18,16 +21,17 @@ app.config['MAX_CONTENT_LENGTH'] = 3 * 300 * 1024 * 1024
 
 
 choice_to_video = {
-    "Baseball": "../data/baseball/baseball_side_view.mp4",
-    "Basketball": "",
-    "Boxing": "",
-    "Football": "",
-    "Golf Side View": "",
-    "Golf Back View": "",
-    "Running": "",
-    "Push-ups": "",
-    "Snatch": "",
-    "Clean and Jerk": ""
+    "Baseball": "shellhacks_algorithm/data/baseball/baseball_side_view.mp4",
+    "Basketball": "shellhacks_algorithm/data/basketball/basketball_side_view.mp4",
+    "Boxing": "shellhacks_algorithm/data/",
+    "Football": "shellhacks_algorithm/data/football/",
+    "Golf Side View": "shellhacks_algorithm/data/golf/golf_side_view.mp4",
+    "Golf Back View": "shellhacks_algorithm/data/golf/golf_front_view.mp4",
+    "Running": "shellhacks_algorithm/data/running/running_side_view.mp4",
+    "Push-ups": "shellhacks_algorithm/data/",
+    "Snatch": "shellhacks_algorithm/data/snatch/snatch_front_view.mp4",
+    "Squat": "shellhacks_algorithm/data/squat/squat_side_view.mp4",
+    "Clean and Jerk": "shellhacks_algorithm/data/cleanandjerk/clean_and_jerk_front_view.mp4"
 }
 
 
@@ -60,15 +64,39 @@ def upload_video():
     with open(filepath, 'wb') as f:
         f.write(video_bytes)
 
-    scores = shellhacks_algorithm.process_files(choice_to_video[sport], filepath)
+    scores, annotated_images = shellhacks_algorithm.process_files(choice_to_video[sport], filepath)
 
-    response = {}
+    jpegs = []
+
+    for annotated_image in annotated_images:
+        jpegs.append(cv2.imencode(".jpg", annotated_image)[1].tobytes())
+
+    process = ffmpeg.input(
+        'pipe:', r='10', f='jpeg_pipe', pix_fmt="rgb24"
+        ).output('/tmp/video.mp4', vcodec='libx264', pix_fmt="yuv420p").overwrite_output().run_async(pipe_stdin=True)
+
+    for jpeg in jpegs:
+        process.stdin.write(jpeg)
+
+    process.stdin.close()
+    process.wait()
+
+    with open('/tmp/video.mp4', 'rb') as f:
+        b = f.read()
+        enc = base64.b64encode(b)
+
+    response = {x + ' score' : y for x, y in scores.items()}
+
+    response['annotated'] = f"data:video/mp4;base64,{str(enc)[2:-1]}"
+    response['overall_score'] = sum(scores.values()) / len(scores)
 
     for graph in graph_file_names:
         with open(graph, "rb") as f:
             cur_graph_bytes = f.read()
-            base_64_encoded_image = f'data:image/png;base64,{base64.b64encode(cur_graph_bytes)}'
+            base_64_encoded_image = f'data:image/png;base64,{str(base64.b64encode(cur_graph_bytes))[2:-1]}'
             response[graph.split('.')[0]] = base_64_encoded_image
+
+        os.remove(graph)
 
     return jsonify(response), 200
 

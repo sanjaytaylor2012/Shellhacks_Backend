@@ -1,6 +1,9 @@
+from typing import Dict, Tuple
+
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
+import mediapipe as mp
 
 from ..data_curation.pose_estimation import LIMB_PAIRS, LIMB_PAIRS_DESCRIPTIONS, VideoProcessor
 
@@ -28,21 +31,21 @@ def evaluate_single_joint(name: tuple[tuple[str, str], tuple[str, str]], baselin
     return correlation
 
 
-def evaluate_sequence(baseline: angle_net, to_evaluate: angle_net) -> list[float]:
-    scores = []
+def evaluate_sequence(baseline: angle_net, to_evaluate: angle_net) -> dict[str, float]:
+    scores = {}
 
     print(to_evaluate)
     print(baseline)
 
     for key, value in baseline.items():
-        scores.append(evaluate_single_joint(key, value, to_evaluate[key]))
+        scores[LIMB_PAIRS_DESCRIPTIONS[LIMB_PAIRS.index(key)]] = evaluate_single_joint(key, value, to_evaluate[key])
 
     return scores
 
 
-def process_files(baseline: str, evaluee: str, compression: int = 4) -> list[float]:
-    a = VideoProcessor.process_video(baseline, compression)
-    b = VideoProcessor.process_video(evaluee, compression)
+def process_files(baseline: str, evaluee: str, compression: int = 4) -> tuple[dict[str, float], list[mp.Image]]:
+    a, _ = VideoProcessor.process_video(baseline, compression)
+    b, ret = VideoProcessor.process_video(evaluee, compression)
 
-    return evaluate_sequence(a, b)
+    return evaluate_sequence(a, b), ret
 

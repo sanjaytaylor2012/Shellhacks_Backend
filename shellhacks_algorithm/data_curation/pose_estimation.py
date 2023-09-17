@@ -10,6 +10,7 @@ import ffmpeg
 import matplotlib.pyplot as plt
 import os
 import pickle
+from .draw_pose import draw_landmarks_on_image
 
 
 from typing import List, Dict, Tuple, Any
@@ -160,7 +161,7 @@ class PoseEstimateFactory:
         pass
 
     @staticmethod
-    def create_pose_estimate(img: mp.Image) -> PoseEstimate:
+    def create_pose_estimate(img: mp.Image) -> tuple[PoseEstimate, mp.Image]:
         detector = Detector()
 
         raw_pose_estimate = detector.detect(img)
@@ -170,6 +171,8 @@ class PoseEstimateFactory:
 
         res = raw_pose_estimate.pose_landmarks[0]
 
+        annotated_image = draw_landmarks_on_image(img.numpy_view(), raw_pose_estimate)
+
         if len(res) < 33:
             return PoseEstimate()
 
@@ -178,10 +181,10 @@ class PoseEstimateFactory:
         for i, name in zip(PoseEstimateFactory.indices, PoseEstimateFactory.names):
             ret.add_point(name, res[i].x, res[i].y)
 
-        return ret
+        return ret, annotated_image
 
 
-def create_pose_estimate_from_video(video: List[mp.Image]) -> List[PoseEstimate]:
+def create_pose_estimate_from_video(video: List[mp.Image]) -> List[tuple[PoseEstimate, mp.Image]]:
     ret = []
 
     for frame in video:
@@ -190,13 +193,13 @@ def create_pose_estimate_from_video(video: List[mp.Image]) -> List[PoseEstimate]
     return ret
 
 
-def create_angle_nets_from_video(video: List[mp.Image]) -> dict[tuple[tuple[str, str], tuple[str, str]], list[Any]] | None:
+def create_angle_nets_from_video(video: List[mp.Image]) -> tuple[dict[tuple[tuple[str, str], tuple[str, str]], list[Any]], list[mp.Image]]:
     ret = {}
+    ret_annotated = []
 
     pose_estimates = create_pose_estimate_from_video(video)
 
-    for pose_estimate in pose_estimates:
-
+    for pose_estimate, annotated_image in pose_estimates:
         if not pose_estimate:
             continue
 
@@ -205,15 +208,17 @@ def create_angle_nets_from_video(video: List[mp.Image]) -> dict[tuple[tuple[str,
         if not an:
             continue
 
+        ret_annotated.append(annotated_image)
+
         for key, value in an.items():
             if key not in ret:
                 ret[key] = []
             ret[key].append(value)
 
-    return ret
+    return ret, ret_annotated
 
 
-def process_video(filename: str, compression: int = 1) -> dict[tuple[tuple[str, str], tuple[str, str]], list[float]]:
+def process_video(filename: str, compression: int = 1) -> tuple[dict[tuple[tuple[str, str], tuple[str, str]], list[Any]], list[mp.Image]]:
     probe = ffmpeg.probe(filename)
     video_stream = next((stream for stream in probe['streams'] if stream['codec_type'] == 'video'), None)
     width = int(video_stream['width'])
@@ -247,7 +252,7 @@ class VideoProcessor:
         pass
 
     @staticmethod
-    def process_video(filename: str, compression: int = 1) -> dict[tuple[tuple[str, str], tuple[str, str]], list[float]]:
+    def process_video(filename: str, compression: int = 1) -> tuple[dict[tuple[tuple[str, str], tuple[str, str]], list[Any]], list[mp.Image]]:
         processed = os.listdir(os.path.dirname(os.path.abspath(__file__)) + "/../processed_videos/baselines")
 
         old_filename = filename
